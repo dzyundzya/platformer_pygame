@@ -4,6 +4,8 @@ import sys
 import pygame
 
 from characters.player import Player
+from constants import STEPS_PLAYER
+
 
 
 """
@@ -13,7 +15,7 @@ world_x = 960
 world_y = 720
 
 fps = 40  # Частота кадров.
-ani = 4  # Циклы анимации.
+
 
 
 main = True
@@ -57,10 +59,22 @@ while main:
         if event.type == pygame.KEYDOWN:
             if event.key == ord('q'):
                 pygame.quit()
-            try:
-                sys.exit()
-            finally:
-                main = False
+                try:
+                    sys.exit()
+                finally:
+                    main = False
+            if event.key == pygame.K_LEFT or event.key == ord('a'):
+                player.control(-STEPS_PLAYER, 0)
+            if event.key == pygame.K_RIGHT or event.key == ord('d'):
+                player.control(STEPS_PLAYER, 0)
+            if event.key == pygame.K_UP or event.key == ord('w'):
+                print('jump')
+
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_LEFT or event.key == ord('a'):
+                player.control(STEPS_PLAYER, 0)
+            if event.key == pygame.K_RIGHT or event.key == ord('d'):
+                player.control(-STEPS_PLAYER, 0)
 
     world.blit(backdrop, backdrop_box)
     player_list.draw(world)
