@@ -8,11 +8,6 @@ import constants
 """
 Переменные
 """
-world_x = 960
-world_y = 720
-
-fps = 40  # Частота кадров.
-
 
 
 """
@@ -123,14 +118,29 @@ class BatEnemy(pygame.sprite.Sprite):
 class Level():
     """Создание уровней."""
 
-    def bad(lvl, e_loc):
+    def bad(lvl, enemy_locaction):
         if lvl == 1:
-            bat_enemy = BatEnemy(e_loc[0], e_loc[1])
+            bat_enemy = BatEnemy(enemy_locaction[0][0], enemy_locaction[0][1])
+            bat_enemy_2 = BatEnemy(enemy_locaction[1][0], enemy_locaction[1][1])
             enemy_list = pygame.sprite.Group()  # Саздание группы врагов.
-            enemy_list.add(bat_enemy)  # Добавление врага в массив.
+            enemy_list.add(bat_enemy, bat_enemy_2)  # Добавление врага в массив.
         if lvl == 2:
             print(f'Level {lvl}')
         return enemy_list
+
+
+class Platform(pygame.sprite.Sprite):
+    """Создание платформы."""
+    
+    def __init__(self, x_location, y_location, img_width, img_height, img_file):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load(
+            os.path.join('images/stages', img_file)).convert()
+        self.image.convert_alpha()
+        self.image.set_colorkey(constants.ALPHA)
+        self.rect = self.image.get_rect()
+        self.rect.y = y_location
+        self.rect.x = x_location
 
 
 
@@ -141,7 +151,7 @@ class Level():
 clock = pygame.time.Clock()
 pygame.init()
 
-world = pygame.display.set_mode([world_x, world_y])
+world = pygame.display.set_mode([constants.WORLD_X, constants.WORLD_Y])
 backdrop = pygame.image.load(os.path.join('images/stages', 'stage.png'))
 backdrop_box = world.get_rect()
 
@@ -157,9 +167,8 @@ player.rect.y = 0
 player_list = pygame.sprite.Group()
 player_list.add(player)
 
-e_loc = []
-e_loc = [300, 0]
-enemy_list = Level.bad(1, e_loc)
+enemy_locaction = [[300, 0], [400, 200]]
+enemy_list = Level.bad(1, enemy_locaction)
 
 
 while running:
@@ -198,4 +207,4 @@ while running:
     for enemy in enemy_list:
         enemy.move()
     pygame.display.flip()
-    clock.tick(fps)
+    clock.tick(constants.FPS)
