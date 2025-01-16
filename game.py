@@ -36,12 +36,27 @@ class Player(pygame.sprite.Sprite):
             self.image = self.images[0]
             self.rect = self.image.get_rect()
         self.is_jumping = True
-        self.is_falling = False
+        self.is_falling = True
 
     def control(self, x, y):
         """Управление перемещением персонажа."""
         self.move_x += x
         self.move_y += y
+
+    def gravity(self):
+        """Гравитация персонажа."""
+        if self.is_jumping:
+            self.move_y += 1.5  # Скорость падения.
+
+        if self.rect.y > constants.WORLD_Y and self.move_y >= 0:
+            self.move_y = 0
+            self.rect.y = constants.WORLD_Y - ty - ty
+
+    def jump(self):
+        """Прыжок персонажа."""
+        if self.is_jumping is False:
+            self.is_falling = False
+            self.is_jumping = True
 
     def update(self):
         """Обновление позиции спрайта."""
@@ -84,15 +99,10 @@ class Player(pygame.sprite.Sprite):
             self.rect.x = tx
             self.rect.y = ty
 
-    def gravity(self):
-        """Гравитация персонажа."""
-        if self.is_jumping:
-            self.move_y += 1.5  # Скорость падения.
-
-        if self.rect.y > constants.WORLD_Y and self.move_y >= 0:
-            self.move_y = 0
-            self.rect.y = constants.WORLD_Y - ty - ty
-
+        # Реализация прыжка.
+        if self.is_jumping and self.is_falling is False:
+            self.is_falling = True
+            self.move_y -= 33  # Настройка скорости прыжка.
 
 
 class BatEnemy(pygame.sprite.Sprite):
@@ -268,8 +278,8 @@ while running:
                 player.control(-constants.STEPS_PLAYER, 0)
             if event.key == pygame.K_RIGHT or event.key == ord('d'):
                 player.control(constants.STEPS_PLAYER, 0)
-            if event.key == pygame.K_UP or event.key == ord('w'):
-                print('jump')
+            if event.key == pygame.K_UP or event.key == ord('w') or event.key == pygame.K_SPACE:
+                player.jump()
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == ord('a'):
