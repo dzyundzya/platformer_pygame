@@ -62,8 +62,10 @@ class Player(pygame.sprite.Sprite):
         """Обновление позиции спрайта."""
         self.rect.x = self.rect.x + self.move_x
         self.rect.y = self.rect.y + self.move_y
+
         # Движение влево.
         if self.move_x < 0:
+            self.is_jumping = True  # Включает гравитацию.
             self.frame += 1
             if self.frame > 3 * constants.ANI:
                 self.frame = 0
@@ -74,6 +76,7 @@ class Player(pygame.sprite.Sprite):
             )
         # Движение вправо.
         if self.move_x > 0:
+            self.is_jumping = True  # Включает гравитацию.
             self.frame += 1
             if self.frame > 3 * constants.ANI:
                 self.frame = 0
@@ -85,13 +88,25 @@ class Player(pygame.sprite.Sprite):
             self.health -= 1
             print(self.health)
 
-        # Детектор столкновение с землей.
+        # Детектор столкновения с землей.
         ground_hit_list = pygame.sprite.spritecollide(self, ground_list, False)
         for ground in ground_hit_list:
             self.move_y = 0
             self.rect.bottom = ground.rect.top
-            self.is_jumping = False  # Останавливает прыжок.
+            self.is_jumping = False  
         
+        # Детектор столкновения с платформой.
+        plat_hit_list = pygame.sprite.spritecollide(self, plat_list, False)
+        for platform in plat_hit_list:
+            self.move_y = 0
+            self.is_jumping = False  # Останавливает прыжок.
+
+            if self.rect.bottom <= platform.rect.bottom:
+                self.rect.bottom = platform.rect.top
+            else:
+                self.move_y = 1.5
+            
+
         # Детектор попадание за пределы карты.
         if self.rect.y > constants.WORLD_Y:
             self.health -= 1
@@ -278,7 +293,7 @@ while running:
                 player.control(-constants.STEPS_PLAYER, 0)
             if event.key == pygame.K_RIGHT or event.key == ord('d'):
                 player.control(constants.STEPS_PLAYER, 0)
-            if event.key == pygame.K_UP or event.key == ord('w') or event.key == pygame.K_SPACE:
+            if event.key == pygame.K_UP or event.key == ord('w'):
                 player.jump()
 
         if event.type == pygame.KEYUP:
