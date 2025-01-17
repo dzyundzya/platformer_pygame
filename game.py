@@ -24,6 +24,7 @@ class Player(pygame.sprite.Sprite):
         self.move_y = 0  # Перемещение по оси У.
         self.frame = 0  # Подсчет кадров.
         self.health = 10
+        self.score = 0
         self.images = []
         for i in range(1, 5):
             img = pygame.image.load(
@@ -46,7 +47,7 @@ class Player(pygame.sprite.Sprite):
     def gravity(self):
         """Гравитация персонажа."""
         if self.is_jumping:
-            self.move_y += 1.5  # Скорость падения.
+            self.move_y += 2  # Скорость падения.
 
         if self.rect.y > constants.WORLD_Y and self.move_y >= 0:
             self.move_y = 0
@@ -105,7 +106,20 @@ class Player(pygame.sprite.Sprite):
                 self.rect.bottom = platform.rect.top
             else:
                 self.move_y = 1.5
-            
+
+        # Детектор столкновения с лутом.
+        loot_hit_list = pygame.sprite.spritecollide(self, loot_list, False)
+        for loot in loot_hit_list:
+            loot_list.remove(loot)
+            self.score += 1
+            print(self.score)
+
+        # Детектор столкновения с хилом.
+        healer_hit_list = pygame.sprite.spritecollide(self, healer_list, False)
+        for healer in healer_hit_list:
+            healer_list.remove(healer)
+            self.health += 15
+            print(self.health)
 
         # Детектор попадание за пределы карты.
         if self.rect.y > constants.WORLD_Y:
@@ -205,6 +219,8 @@ class Level():
             p_loc.append((100, constants.WORLD_Y - ty - 256, 3))
             p_loc.append((300, constants.WORLD_Y - ty - 512, 3))
             p_loc.append((600, constants.WORLD_Y - ty - 184, 2))
+            p_loc.append((1200, constants.WORLD_Y - ty - 184, 4))
+            p_loc.append((1500, constants.WORLD_Y - ty - 380, 4))
             while i < len(p_loc):
                 j = 0
                 while j <= p_loc[i][2]:
@@ -219,6 +235,28 @@ class Level():
         if lvl == 2:
             print(f'Level {lvl}')
         return plat_list
+    
+    def loot(lvl):
+        """Создание лута."""
+        if lvl == 1:
+            loot_list = pygame.sprite.Group()
+            loot = Platform(420, 75, tx, ty, 'coin.png')
+            loot_1 = Platform(690, 400, tx, ty, 'coin.png')
+            loot_list.add(loot, loot_1)
+        if lvl == 2:
+            print(lvl)
+        return loot_list
+    
+    def healer(lvl):
+        """Создание хилок."""
+        if lvl == 1:
+            healer_list = pygame.sprite.Group()
+            healer = Platform(1700, 75, tx, ty, 'health15.png')
+            healer_list.add(healer)
+        if lvl == 2:
+            print(lvl)
+        return healer_list
+
 
 
 class Platform(pygame.sprite.Sprite):
@@ -233,7 +271,6 @@ class Platform(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.y = y_location
         self.rect.x = x_location
-
 
 
 """
@@ -258,6 +295,8 @@ while i <= (constants.WORLD_X / tx) + tx:
 
 ground_list = Level.ground(1, gloc, tx, ty)
 plat_list = Level.platform(1, tx, ty)
+loot_list = Level.loot(1)
+healer_list = Level.healer(1)
 
 """
 Главный цикл
@@ -302,14 +341,44 @@ while running:
             if event.key == pygame.K_RIGHT or event.key == ord('d'):
                 player.control(-constants.STEPS_PLAYER, 0)
 
+    # Прокрутка сцены вправо.
+    if player.rect.x >= constants.FORWARD_X:
+        scroll = player.rect.x - constants.FORWARD_X
+        player.rect.x = constants.FORWARD_X
+        for p in plat_list:
+            p.rect.x -= scroll
+        for enemy in enemy_list:
+            enemy.rect.x -= scroll
+        for loot in loot_list:
+            loot.rect.x -= scroll
+        for healer in healer_list:
+            healer.rect.x -= scroll
+
+    # Прокрутка сцены влево.
+    if player.rect.x <= constants.BACKWARD_X:
+        scroll = constants.BACKWARD_X - player.rect.x
+        player.rect.x = constants.BACKWARD_X
+        for p in plat_list:
+            p.rect.x += scroll
+        for enemy in enemy_list:
+            enemy.rect.x += scroll
+        for loot in loot_list:
+            loot.rect.x += scroll
+        for healer in healer_list:
+            healer.rect.x += scroll
+
     world.blit(backdrop, backdrop_box)
     player.gravity()  # Проверка гравитации.
     player.update()  # Обновляет положение персонажа.
+    loot_list.draw(world)
+    healer_list.draw(world)
     player_list.draw(world)
     enemy_list.draw(world)
     ground_list.draw(world)
     plat_list.draw(world)
+
     for enemy in enemy_list:
         enemy.move()
+
     pygame.display.flip()
     clock.tick(constants.FPS)

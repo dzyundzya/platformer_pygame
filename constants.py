@@ -8,3 +8,6 @@ WORLD_Y = 720
 FPS = 40  # Частота кадров.
 
 TILE_SIZE = 64
+
+FORWARD_X = 600
+BACKWARD_X = 230
