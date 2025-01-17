@@ -2,6 +2,7 @@ import os
 import sys
 
 import pygame
+from pygame import freetype
 
 import constants
 
@@ -24,6 +25,7 @@ class Player(pygame.sprite.Sprite):
         self.move_y = 0  # Перемещение по оси У.
         self.frame = 0  # Подсчет кадров.
         self.health = 10
+        self.damage = 0
         self.score = 0
         self.images = []
         for i in range(1, 5):
@@ -84,10 +86,17 @@ class Player(pygame.sprite.Sprite):
             self.image = self.images[self.frame // constants.ANI]
 
         # Детектор столкновений c врагом.
-        hit_list = pygame.sprite.spritecollide(self, enemy_list, False)
-        for enemy in hit_list:
-            self.health -= 1
-            print(self.health)
+        enemy_hit_list = pygame.sprite.spritecollide(self, enemy_list, False)
+        if self.damage == 0:
+            for enemy in enemy_hit_list:
+                if not self.rect.contains(enemy):
+                    self.damage = self.rect.colliderect(enemy)
+        
+        if self.damage == 1:
+            id_x = self.rect.collidelist(enemy_hit_list)
+            if id_x == -1:
+                self.damage = 0
+                self.health -= 1
 
         # Детектор столкновения с землей.
         ground_hit_list = pygame.sprite.spritecollide(self, ground_list, False)
@@ -220,7 +229,7 @@ class Level():
             p_loc.append((300, constants.WORLD_Y - ty - 512, 3))
             p_loc.append((600, constants.WORLD_Y - ty - 184, 2))
             p_loc.append((1200, constants.WORLD_Y - ty - 184, 4))
-            p_loc.append((1500, constants.WORLD_Y - ty - 380, 4))
+            p_loc.append((1500, constants.WORLD_Y - ty - 450, 4))
             while i < len(p_loc):
                 j = 0
                 while j <= p_loc[i][2]:
@@ -273,12 +282,29 @@ class Platform(pygame.sprite.Sprite):
         self.rect.x = x_location
 
 
+def stats(score, health):
+    my_font.render_to(
+        world, (775, 4), f'Score: {score}',
+        constants.SCARLET, None, size=constants.HEALTH_SCORE_SIZE
+    )
+    my_font.render_to(
+        world, (4, 4), f'Health: {health}',
+        constants.SCARLET, None, size=constants.HEALTH_SCORE_SIZE
+    )
+
 """
 Настройка
 """
 
 clock = pygame.time.Clock()
 pygame.init()
+
+font_path = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), 'fonts', 'spydi.ttf'
+)
+freetype.init()
+my_font = freetype.Font(font_path, constants.FONT_SIZE)
+
 
 world = pygame.display.set_mode([constants.WORLD_X, constants.WORLD_Y])
 backdrop = pygame.image.load(os.path.join('images/stages', 'stage.png'))
@@ -380,5 +406,8 @@ while running:
     for enemy in enemy_list:
         enemy.move()
 
+    stats(player.score, player.health)
+
     pygame.display.flip()
     clock.tick(constants.FPS)
+    
