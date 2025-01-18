@@ -5,6 +5,7 @@ import pygame
 from pygame import freetype
 
 import constants
+import sounds
 
 
 """
@@ -36,6 +37,7 @@ class Player(pygame.sprite.Sprite):
             self.rect = self.image.get_rect()
         self.is_jumping = True
         self.is_falling = True
+        # self.facing_right = True
 
     def control(self, x, y):
         """Управление перемещением персонажа."""
@@ -56,6 +58,7 @@ class Player(pygame.sprite.Sprite):
         if self.is_jumping is False:
             self.is_falling = False
             self.is_jumping = True
+            pygame.mixer.Sound.play(sounds.jump)
 
     def update(self):
         """Обновление позиции спрайта."""
@@ -118,12 +121,14 @@ class Player(pygame.sprite.Sprite):
         for loot in loot_hit_list:
             loot_list.remove(loot)
             self.score += 1
+            pygame.mixer.Sound.play(sounds.coin)
 
         # Детектор столкновения с хилом.
         healer_hit_list = pygame.sprite.spritecollide(self, healer_list, True)
         for healer in healer_hit_list:
             healer_list.remove(healer)
             self.health += 15
+            pygame.mixer.Sound.play(sounds.health)
 
         # Детектор попадание за пределы карты.
         if self.rect.y > constants.WORLD_Y:
@@ -313,7 +318,6 @@ class Level():
         return healer_list
 
 
-
 class Platform(pygame.sprite.Sprite):
     """Создание платформы."""
 
@@ -344,6 +348,7 @@ def stats(score, health):
 
 clock = pygame.time.Clock()
 pygame.init()
+
 
 font_path = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), 'fonts', 'spydi.ttf'
@@ -389,6 +394,8 @@ firepower = pygame.sprite.Group()
 enemy_locaction = [[290, 75], [200, 575]]
 enemy_list = Level.bad(1, enemy_locaction)
 
+pygame.mixer.music.play(-1)
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -418,12 +425,15 @@ while running:
                         'images/sprites/fireball_sprites', 'fireball', 1
                     )
                     firepower.add(fireball)
+                    pygame.mixer.Sound.play(sounds.fireball, loops=0)
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == ord('a'):
                 player.control(constants.STEPS_PLAYER, 0)
+                # player.facing_right = False
             if event.key == pygame.K_RIGHT or event.key == ord('d'):
                 player.control(-constants.STEPS_PLAYER, 0)
+                # player.facing_right = True
 
     # Прокрутка сцены вправо.
     if player.rect.x >= constants.FORWARD_X:
@@ -456,8 +466,10 @@ while running:
     player.update()  # Обновляет положение персонажа.
     loot_list.draw(world)
     healer_list.draw(world)
+
     for enemy in enemy_list:
         enemy.move()
+
     if fireball.firing:
         fireball.update(constants.WORLD_X)
         firepower.draw(world)
@@ -472,4 +484,3 @@ while running:
 
     pygame.display.flip()
     clock.tick(constants.FPS)
-    
