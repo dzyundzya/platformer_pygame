@@ -193,6 +193,7 @@ class BatEnemy(pygame.sprite.Sprite):
         # Детектор столкновений с fireball.
         fireball_hit_list = pygame.sprite.spritecollide(self, firepower, False)
         for fire in fireball_hit_list:
+            pygame.mixer.Sound.play(sounds.enemy_hit, 0)
             enemy_list.remove(self)
 
 
