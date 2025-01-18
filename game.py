@@ -6,10 +6,6 @@ from pygame import freetype
 
 import constants
 
-"""
-Переменные
-"""
-
 
 """
 Объекты
@@ -87,6 +83,7 @@ class Player(pygame.sprite.Sprite):
 
         # Детектор столкновений c врагом.
         enemy_hit_list = pygame.sprite.spritecollide(self, enemy_list, False)
+
         if self.damage == 0:
             for enemy in enemy_hit_list:
                 if not self.rect.contains(enemy):
@@ -103,7 +100,7 @@ class Player(pygame.sprite.Sprite):
         for ground in ground_hit_list:
             self.move_y = 0
             self.rect.bottom = ground.rect.top
-            self.is_jumping = False  
+            self.is_jumping = False
         
         # Детектор столкновения с платформой.
         plat_hit_list = pygame.sprite.spritecollide(self, plat_list, False)
@@ -121,19 +118,16 @@ class Player(pygame.sprite.Sprite):
         for loot in loot_hit_list:
             loot_list.remove(loot)
             self.score += 1
-            print(self.score)
 
         # Детектор столкновения с хилом.
-        healer_hit_list = pygame.sprite.spritecollide(self, healer_list, False)
+        healer_hit_list = pygame.sprite.spritecollide(self, healer_list, True)
         for healer in healer_hit_list:
             healer_list.remove(healer)
             self.health += 15
-            print(self.health)
 
         # Детектор попадание за пределы карты.
         if self.rect.y > constants.WORLD_Y:
             self.health -= 1
-            print(self.health)
             self.rect.x = tx
             self.rect.y = ty
 
@@ -188,6 +182,47 @@ class BatEnemy(pygame.sprite.Sprite):
             self.counter = 0
         self.counter += 1
 
+    def update(self, firepower, enemy_list):
+        """Обновления спрайта."""
+
+        # Детектор столкновений с fireball.
+        fireball_hit_list = pygame.sprite.spritecollide(self, firepower, False)
+        for fire in fireball_hit_list:
+            enemy_list.remove(self)
+
+
+class Throwball(pygame.sprite.Sprite):
+    """Создание объекта дял метания."""
+    def __init__(self, x, y, dir, fire, throw):
+        pygame.sprite.Sprite.__init__(self)
+        self.images = []
+        for i in range(1, 5):
+            img = pygame.image.load(
+                os.path.join(
+                    dir,
+                    f'{fire}{i}.png')).convert()
+            img.convert_alpha()
+            img.set_colorkey(constants.ALPHA)
+            self.images.append(img)
+            self.image = self.images[0]
+            self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.firing = throw
+        self.frame = 0
+
+    def update(self, world_x):
+        """Физика метания."""
+        if self.rect.x < world_x:
+            self.rect.x += 5  # C какой скоростью перемещается объект.
+            self.frame += 1
+            if self.frame > 3 * constants.ANI:
+                self.frame = 0
+            self.image = self.images[self.frame // constants.ANI]
+        else:
+            self.kill()  # Удаление объекта.
+            self.firing = 0
+
 
 class Level():
     """Создание уровней."""
@@ -230,6 +265,9 @@ class Level():
             p_loc.append((600, constants.WORLD_Y - ty - 184, 2))
             p_loc.append((1200, constants.WORLD_Y - ty - 184, 4))
             p_loc.append((1500, constants.WORLD_Y - ty - 450, 4))
+            p_loc.append((2000, constants.WORLD_Y - ty - 150, 1))
+            p_loc.append((2300, constants.WORLD_Y - ty - 300, 1))
+            p_loc.append((2600, constants.WORLD_Y - ty - 450, 1))
             while i < len(p_loc):
                 j = 0
                 while j <= p_loc[i][2]:
@@ -247,11 +285,19 @@ class Level():
     
     def loot(lvl):
         """Создание лута."""
+        loot_loc = []
+        i = 0
         if lvl == 1:
             loot_list = pygame.sprite.Group()
-            loot = Platform(420, 75, tx, ty, 'coin.png')
-            loot_1 = Platform(690, 400, tx, ty, 'coin.png')
-            loot_list.add(loot, loot_1)
+            loot_loc.append((420, 75))
+            loot_loc.append((690, 400))
+            loot_loc.append((2675, 150))
+            loot_loc.append((2675, 150))
+            loot_loc.append((2675, 150))
+            while i < len(loot_loc):
+                loot = Platform(loot_loc[i][0], loot_loc[i][1], tx, ty, 'coin.png')
+                loot_list.add(loot)
+                i += 1
         if lvl == 2:
             print(lvl)
         return loot_list
@@ -334,6 +380,11 @@ player.rect.x = 0
 player.rect.y = 0
 player_list = pygame.sprite.Group()
 player_list.add(player)
+fireball = Throwball(
+    player.rect.x, player.rect.y,
+    'images/sprites/fireball_sprites', 'fireball', 0
+)
+firepower = pygame.sprite.Group()
 
 enemy_locaction = [[290, 75], [200, 575]]
 enemy_list = Level.bad(1, enemy_locaction)
@@ -360,6 +411,13 @@ while running:
                 player.control(constants.STEPS_PLAYER, 0)
             if event.key == pygame.K_UP or event.key == ord('w'):
                 player.jump()
+            if event.key == pygame.K_SPACE:
+                if not fireball.firing:
+                    fireball = Throwball(
+                        player.rect.x + constants.FB_DISTANCE, player.rect.y,
+                        'images/sprites/fireball_sprites', 'fireball', 1
+                    )
+                    firepower.add(fireball)
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == ord('a'):
@@ -398,13 +456,17 @@ while running:
     player.update()  # Обновляет положение персонажа.
     loot_list.draw(world)
     healer_list.draw(world)
+    for enemy in enemy_list:
+        enemy.move()
+    if fireball.firing:
+        fireball.update(constants.WORLD_X)
+        firepower.draw(world)
+        enemy_list.update(firepower, enemy_list)  # Обновление противника.
+
     player_list.draw(world)
     enemy_list.draw(world)
     ground_list.draw(world)
     plat_list.draw(world)
-
-    for enemy in enemy_list:
-        enemy.move()
 
     stats(player.score, player.health)
 
