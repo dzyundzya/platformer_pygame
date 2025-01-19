@@ -2,15 +2,18 @@ import os
 import sys
 
 import pygame
-from pygame import freetype
+from pygame import mixer
 
-import constants
-import sounds
+import settings.constants as const
+from settings.fonts import stats
+from settings.settings import backdrop, backdrop_box, gloc, world
+from objects.sounds import Sound
 
 
 """
 Объекты
 """
+sound = Sound()
 
 
 class Player(pygame.sprite.Sprite):
@@ -31,7 +34,7 @@ class Player(pygame.sprite.Sprite):
                     'images/sprites/hero_sprites',
                     f'hero{i}.png')).convert()
             img.convert_alpha()
-            img.set_colorkey(constants.ALPHA)
+            img.set_colorkey(const.ALPHA)
             self.images.append(img)
             self.image = self.images[0]
             self.rect = self.image.get_rect()
@@ -49,18 +52,20 @@ class Player(pygame.sprite.Sprite):
         if self.is_jumping:
             self.move_y += 2  # Скорость падения.
 
-        if self.rect.y > constants.WORLD_Y and self.move_y >= 0:
+        if self.rect.y > const.WORLD_Y and self.move_y >= 0:
             self.move_y = 0
-            self.rect.y = constants.WORLD_Y - ty - ty
+            self.rect.y = const.WORLD_Y - const.ty - const.ty
 
     def jump(self):
         """Прыжок персонажа."""
         if self.is_jumping is False:
             self.is_falling = False
             self.is_jumping = True
-            pygame.mixer.Sound.play(sounds.jump)
+            mixer.Sound.play(sound.jump)
 
-    def update(self):
+    def update(
+            self, enemy_list, ground_list, plat_list, loot_list, healer_list
+            ):
         """Обновление позиции спрайта."""
         self.rect.x = self.rect.x + self.move_x
         self.rect.y = self.rect.y + self.move_y
@@ -69,10 +74,10 @@ class Player(pygame.sprite.Sprite):
         if self.move_x < 0:
             self.is_jumping = True  # Включает гравитацию.
             self.frame += 1
-            if self.frame > 3 * constants.ANI:
+            if self.frame > 3 * const.ANI:
                 self.frame = 0
             self.image = pygame.transform.flip(
-                self.images[self.frame // constants.ANI],
+                self.images[self.frame // const.ANI],
                 True,
                 False
             )
@@ -80,9 +85,9 @@ class Player(pygame.sprite.Sprite):
         if self.move_x > 0:
             self.is_jumping = True  # Включает гравитацию.
             self.frame += 1
-            if self.frame > 3 * constants.ANI:
+            if self.frame > 3 * const.ANI:
                 self.frame = 0
-            self.image = self.images[self.frame // constants.ANI]
+            self.image = self.images[self.frame // const.ANI]
 
         # Детектор столкновений c врагом.
         enemy_hit_list = pygame.sprite.spritecollide(self, enemy_list, False)
@@ -91,7 +96,7 @@ class Player(pygame.sprite.Sprite):
             for enemy in enemy_hit_list:
                 if not self.rect.contains(enemy):
                     self.damage = self.rect.colliderect(enemy)
-        
+
         if self.damage == 1:
             id_x = self.rect.collidelist(enemy_hit_list)
             if id_x == -1:
@@ -104,7 +109,7 @@ class Player(pygame.sprite.Sprite):
             self.move_y = 0
             self.rect.bottom = ground.rect.top
             self.is_jumping = False
-        
+
         # Детектор столкновения с платформой.
         plat_hit_list = pygame.sprite.spritecollide(self, plat_list, False)
         for platform in plat_hit_list:
@@ -121,20 +126,20 @@ class Player(pygame.sprite.Sprite):
         for loot in loot_hit_list:
             loot_list.remove(loot)
             self.score += 1
-            pygame.mixer.Sound.play(sounds.coin)
+            mixer.Sound.play(sound.coin)
 
         # Детектор столкновения с хилом.
         healer_hit_list = pygame.sprite.spritecollide(self, healer_list, True)
         for healer in healer_hit_list:
             healer_list.remove(healer)
             self.health += 15
-            pygame.mixer.Sound.play(sounds.health)
+            mixer.Sound.play(sound.health)
 
         # Детектор попадание за пределы карты.
-        if self.rect.y > constants.WORLD_Y:
+        if self.rect.y > const.WORLD_Y:
             self.health -= 1
-            self.rect.x = tx
-            self.rect.y = ty
+            self.rect.x = const.tx
+            self.rect.y = const.ty
 
         # Реализация прыжка.
         if self.is_jumping and self.is_falling is False:
@@ -155,14 +160,14 @@ class BatEnemy(pygame.sprite.Sprite):
                     'images/sprites/bat_sprites',
                     f'bat{i}.png')).convert()
             img.convert_alpha()
-            img.set_colorkey(constants.ALPHA)
+            img.set_colorkey(const.ALPHA)
             self.images.append(img)
             self.image = self.images[0]
             self.rect = self.image.get_rect()
             self.rect.x = x
             self.rect.y = y
             self.counter = 0
-            
+
     def move(self):
         """Перемещение врага."""
         distance = 80
@@ -170,19 +175,19 @@ class BatEnemy(pygame.sprite.Sprite):
         if self.counter >= 0 and self.counter <= distance:
             self.rect.x += speed
             self.frame += 1
-            if self.frame > 4 * constants.ANI:
+            if self.frame > 4 * const.ANI:
                 self.frame = 0
             self.image = pygame.transform.flip(
-                self.images[self.frame // constants.ANI],
+                self.images[self.frame // const.ANI],
                 True,
                 False
             )
         elif self.counter >= distance and self.counter <= distance * 2:
             self.rect.x -= speed
             self.frame += 1
-            if self.frame > 3 * constants.ANI:
+            if self.frame > 3 * const.ANI:
                 self.frame = 0
-            self.image = self.images[self.frame // constants.ANI]
+            self.image = self.images[self.frame // const.ANI]
         else:
             self.counter = 0
         self.counter += 1
@@ -193,7 +198,7 @@ class BatEnemy(pygame.sprite.Sprite):
         # Детектор столкновений с fireball.
         fireball_hit_list = pygame.sprite.spritecollide(self, firepower, False)
         for fire in fireball_hit_list:
-            pygame.mixer.Sound.play(sounds.enemy_hit, 0)
+            mixer.Sound.play(sound.enemy_hit, 0)
             enemy_list.remove(self)
 
 
@@ -208,7 +213,7 @@ class Throwball(pygame.sprite.Sprite):
                     dir,
                     f'{fire}{i}.png')).convert()
             img.convert_alpha()
-            img.set_colorkey(constants.ALPHA)
+            img.set_colorkey(const.ALPHA)
             self.images.append(img)
             self.image = self.images[0]
             self.rect = self.image.get_rect()
@@ -222,15 +227,15 @@ class Throwball(pygame.sprite.Sprite):
         if self.rect.x < world_x:
             self.rect.x += 5  # C какой скоростью перемещается объект.
             self.frame += 1
-            if self.frame > 3 * constants.ANI:
+            if self.frame > 3 * const.ANI:
                 self.frame = 0
-            self.image = self.images[self.frame // constants.ANI]
+            self.image = self.images[self.frame // const.ANI]
         else:
             self.kill()  # Удаление объекта.
             self.firing = 0
 
 
-class Level():
+class Level:
     """Создание уровней."""
 
     def bad(lvl, enemy_locaction):
@@ -251,8 +256,8 @@ class Level():
             while i < len(g_loc):
                 ground = Platform(
                     gloc[i],
-                    constants.WORLD_Y - ty,
-                    tx, ty, 'tile.png'
+                    const.WORLD_Y - const.ty,
+                    const.tx, const.ty, 'tile.png'
                 )
                 ground_list.add(ground)
                 i += 1
@@ -266,14 +271,14 @@ class Level():
         p_loc = []
         i = 0
         if lvl == 1:
-            p_loc.append((100, constants.WORLD_Y - ty - 256, 3))
-            p_loc.append((300, constants.WORLD_Y - ty - 512, 3))
-            p_loc.append((600, constants.WORLD_Y - ty - 184, 2))
-            p_loc.append((1200, constants.WORLD_Y - ty - 184, 4))
-            p_loc.append((1500, constants.WORLD_Y - ty - 450, 4))
-            p_loc.append((2000, constants.WORLD_Y - ty - 150, 1))
-            p_loc.append((2300, constants.WORLD_Y - ty - 300, 1))
-            p_loc.append((2600, constants.WORLD_Y - ty - 450, 1))
+            p_loc.append((100, const.WORLD_Y - ty - 256, 3))
+            p_loc.append((300, const.WORLD_Y - ty - 512, 3))
+            p_loc.append((600, const.WORLD_Y - ty - 184, 2))
+            p_loc.append((1200, const.WORLD_Y - ty - 184, 4))
+            p_loc.append((1500, const.WORLD_Y - ty - 450, 4))
+            p_loc.append((2000, const.WORLD_Y - ty - 150, 1))
+            p_loc.append((2300, const.WORLD_Y - ty - 300, 1))
+            p_loc.append((2600, const.WORLD_Y - ty - 450, 1))
             while i < len(p_loc):
                 j = 0
                 while j <= p_loc[i][2]:
@@ -288,7 +293,7 @@ class Level():
         if lvl == 2:
             print(f'Level {lvl}')
         return plat_list
-    
+
     def loot(lvl):
         """Создание лута."""
         loot_loc = []
@@ -301,18 +306,21 @@ class Level():
             loot_loc.append((2675, 150))
             loot_loc.append((2675, 150))
             while i < len(loot_loc):
-                loot = Platform(loot_loc[i][0], loot_loc[i][1], tx, ty, 'coin.png')
+                loot = Platform(
+                    loot_loc[i][0], loot_loc[i][1], 
+                    const.tx, const.ty, 'coin.png'
+                )
                 loot_list.add(loot)
                 i += 1
         if lvl == 2:
             print(lvl)
         return loot_list
-    
+
     def healer(lvl):
         """Создание хилок."""
         if lvl == 1:
             healer_list = pygame.sprite.Group()
-            healer = Platform(1700, 75, tx, ty, 'health15.png')
+            healer = Platform(1700, 75, const.tx, const.ty, 'health15.png')
             healer_list.add(healer)
         if lvl == 2:
             print(lvl)
@@ -327,161 +335,130 @@ class Platform(pygame.sprite.Sprite):
         self.image = pygame.image.load(
             os.path.join('images/stages', img_file)).convert()
         self.image.convert_alpha()
-        self.image.set_colorkey(constants.ALPHA)
+        self.image.set_colorkey(const.ALPHA)
         self.rect = self.image.get_rect()
         self.rect.y = y_location
         self.rect.x = x_location
 
 
-def stats(score, health):
-    my_font.render_to(
-        world, (775, 4), f'Score: {score}',
-        constants.SCARLET, None, size=constants.HEALTH_SCORE_SIZE
+def main():
+    clock = pygame.time.Clock()
+    pygame.init()
+
+    ground_list = Level.ground(1, gloc, const.tx, const.ty)
+    plat_list = Level.platform(1, const.tx, const.ty)
+    loot_list = Level.loot(1)
+    healer_list = Level.healer(1)
+
+    player = Player()
+    player.rect.x = 0
+    player.rect.y = 0
+    player_list = pygame.sprite.Group()
+    player_list.add(player)
+    fireball = Throwball(
+        player.rect.x, player.rect.y,
+        'images/sprites/fireball_sprites', 'fireball', 0
     )
-    my_font.render_to(
-        world, (4, 4), f'Health: {health}',
-        constants.SCARLET, None, size=constants.HEALTH_SCORE_SIZE
-    )
+    firepower = pygame.sprite.Group()
 
-"""
-Настройка
-"""
+    enemy_locaction = [[290, 75], [200, 575]]
+    enemy_list = Level.bad(1, enemy_locaction)
 
-clock = pygame.time.Clock()
-pygame.init()
+    pygame.mixer.music.play(-1)  # Активирует фоновый симпл.
 
+    running = True
 
-font_path = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), 'fonts', 'spydi.ttf'
-)
-freetype.init()
-my_font = freetype.Font(font_path, constants.FONT_SIZE)
-
-
-world = pygame.display.set_mode([constants.WORLD_X, constants.WORLD_Y])
-backdrop = pygame.image.load(os.path.join('images/stages', 'stage.png'))
-backdrop_box = world.get_rect()
-
-gloc = []
-tx = constants.TILE_SIZE
-ty = constants.TILE_SIZE
-
-i = 0
-while i <= (constants.WORLD_X / tx) + tx:
-    gloc.append(i * tx)
-    i += 1
-
-ground_list = Level.ground(1, gloc, tx, ty)
-plat_list = Level.platform(1, tx, ty)
-loot_list = Level.loot(1)
-healer_list = Level.healer(1)
-
-"""
-Главный цикл
-"""
-running = True
-
-player = Player()
-player.rect.x = 0
-player.rect.y = 0
-player_list = pygame.sprite.Group()
-player_list.add(player)
-fireball = Throwball(
-    player.rect.x, player.rect.y,
-    'images/sprites/fireball_sprites', 'fireball', 0
-)
-firepower = pygame.sprite.Group()
-
-enemy_locaction = [[290, 75], [200, 575]]
-enemy_list = Level.bad(1, enemy_locaction)
-
-pygame.mixer.music.play(-1)
-
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            try:
-                sys.exit()
-            finally:
-                running = False
-
-        if event.type == pygame.KEYDOWN:
-            if event.key == ord('q'):
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
                 pygame.quit()
                 try:
                     sys.exit()
                 finally:
                     running = False
-            if event.key == pygame.K_LEFT or event.key == ord('a'):
-                player.control(-constants.STEPS_PLAYER, 0)
-            if event.key == pygame.K_RIGHT or event.key == ord('d'):
-                player.control(constants.STEPS_PLAYER, 0)
-            if event.key == pygame.K_UP or event.key == ord('w'):
-                player.jump()
-            if event.key == pygame.K_SPACE:
-                if not fireball.firing:
-                    fireball = Throwball(
-                        player.rect.x + constants.FB_DISTANCE, player.rect.y,
-                        'images/sprites/fireball_sprites', 'fireball', 1
-                    )
-                    firepower.add(fireball)
-                    pygame.mixer.Sound.play(sounds.fireball, loops=0)
 
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_LEFT or event.key == ord('a'):
-                player.control(constants.STEPS_PLAYER, 0)
-                # player.facing_right = False
-            if event.key == pygame.K_RIGHT or event.key == ord('d'):
-                player.control(-constants.STEPS_PLAYER, 0)
-                # player.facing_right = True
+            if event.type == pygame.KEYDOWN:
+                if event.key == ord('q'):
+                    pygame.quit()
+                    try:
+                        sys.exit()
+                    finally:
+                        running = False
+                if event.key == pygame.K_LEFT or event.key == ord('a'):
+                    player.control(-const.STEPS_PLAYER, 0)
+                if event.key == pygame.K_RIGHT or event.key == ord('d'):
+                    player.control(const.STEPS_PLAYER, 0)
+                if event.key == pygame.K_UP or event.key == ord('w'):
+                    player.jump()
+                if event.key == pygame.K_SPACE:
+                    if not fireball.firing:
+                        fireball = Throwball(
+                            player.rect.x + const.FB_DISTANCE, player.rect.y,
+                            'images/sprites/fireball_sprites', 'fireball', 1
+                        )
+                        firepower.add(fireball)
+                        mixer.Sound.play(sound.fireball, loops=0)
 
-    # Прокрутка сцены вправо.
-    if player.rect.x >= constants.FORWARD_X:
-        scroll = player.rect.x - constants.FORWARD_X
-        player.rect.x = constants.FORWARD_X
-        for p in plat_list:
-            p.rect.x -= scroll
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_LEFT or event.key == ord('a'):
+                    player.control(const.STEPS_PLAYER, 0)
+                    # player.facing_right = False
+                if event.key == pygame.K_RIGHT or event.key == ord('d'):
+                    player.control(-const.STEPS_PLAYER, 0)
+                    # player.facing_right = True
+
+        # Прокрутка сцены вправо.
+        if player.rect.x >= const.FORWARD_X:
+            scroll = player.rect.x - const.FORWARD_X
+            player.rect.x = const.FORWARD_X
+            for p in plat_list:
+                p.rect.x -= scroll
+            for enemy in enemy_list:
+                enemy.rect.x -= scroll
+            for loot in loot_list:
+                loot.rect.x -= scroll
+            for healer in healer_list:
+                healer.rect.x -= scroll
+
+        # Прокрутка сцены влево.
+        if player.rect.x <= const.BACKWARD_X:
+            scroll = const.BACKWARD_X - player.rect.x
+            player.rect.x = const.BACKWARD_X
+            for p in plat_list:
+                p.rect.x += scroll
+            for enemy in enemy_list:
+                enemy.rect.x += scroll
+            for loot in loot_list:
+                loot.rect.x += scroll
+            for healer in healer_list:
+                healer.rect.x += scroll
+
+        world.blit(backdrop, backdrop_box)
+        player.gravity()  # Проверка гравитации.
+        player.update(
+            enemy_list, ground_list, plat_list, loot_list, healer_list  
+        )  
+        loot_list.draw(world)
+        healer_list.draw(world)
+
         for enemy in enemy_list:
-            enemy.rect.x -= scroll
-        for loot in loot_list:
-            loot.rect.x -= scroll
-        for healer in healer_list:
-            healer.rect.x -= scroll
+            enemy.move()
 
-    # Прокрутка сцены влево.
-    if player.rect.x <= constants.BACKWARD_X:
-        scroll = constants.BACKWARD_X - player.rect.x
-        player.rect.x = constants.BACKWARD_X
-        for p in plat_list:
-            p.rect.x += scroll
-        for enemy in enemy_list:
-            enemy.rect.x += scroll
-        for loot in loot_list:
-            loot.rect.x += scroll
-        for healer in healer_list:
-            healer.rect.x += scroll
+        if fireball.firing:
+            fireball.update(const.WORLD_X)
+            firepower.draw(world)
+            enemy_list.update(firepower, enemy_list)  # Обновление противника.
 
-    world.blit(backdrop, backdrop_box)
-    player.gravity()  # Проверка гравитации.
-    player.update()  # Обновляет положение персонажа.
-    loot_list.draw(world)
-    healer_list.draw(world)
+        ground_list.draw(world)
+        plat_list.draw(world)
+        player_list.draw(world)
+        enemy_list.draw(world)
 
-    for enemy in enemy_list:
-        enemy.move()
+        stats(player.score, player.health)
 
-    if fireball.firing:
-        fireball.update(constants.WORLD_X)
-        firepower.draw(world)
-        enemy_list.update(firepower, enemy_list)  # Обновление противника.
+        pygame.display.flip()
+        clock.tick(const.FPS)
 
-    player_list.draw(world)
-    enemy_list.draw(world)
-    ground_list.draw(world)
-    plat_list.draw(world)
 
-    stats(player.score, player.health)
-
-    pygame.display.flip()
-    clock.tick(constants.FPS)
+if __name__ == '__main__':
+    main()
