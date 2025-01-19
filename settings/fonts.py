@@ -3,7 +3,7 @@ import os
 from pygame import freetype
 
 from settings.constants import FONT_SIZE, HEALTH_SCORE_SIZE, SCARLET
-from settings.settings import world
+from settings.settings_game import world
 
 
 font_path = os.path.join('fonts', 'spydi.ttf')
